@@ -98,15 +98,11 @@ TRANSLATIONS = {
 # --- 4. CSS OVERRIDES & CLEAN UI ---
 st.markdown("""
     <style>
-    /* 1. Transparent Header & Hide Fork/GitHub/Deploy Toolbar */
-    header[data-testid="stHeader"] {
-        background: transparent !important;
-    }
+    /* 1. Header Toolbar Hide */
+    header[data-testid="stHeader"] { background: transparent !important; }
     [data-testid="stAppViewToolbar"] { display: none !important; }
     #MainMenu { visibility: hidden !important; }
     footer { visibility: hidden !important; }
-    .stAppDeployButton { display: none !important; }
-    div[class*="viewerBadge_container"] { display: none !important; }
 
     /* 2. Sidebar Toggle Button Styling */
     button[data-testid="stHeaderSidebarToggle"] {
@@ -120,7 +116,7 @@ st.markdown("""
 
     .block-container { padding-top: 1.5rem !important; }
 
-    /* 3. Sidebar UI Elements */
+    /* 3. Sidebar Flag Style */
     .sidebar-flag-box { width: 100%; margin-bottom: 12px; }
     .sidebar-flag-box img {
         width: 105px;
@@ -130,50 +126,54 @@ st.markdown("""
         display: block;
     }
 
-    /* 4. Modern & Clean Tab Navigation (Fixed Ugly Blue Box Issue) */
+    /* 4. Remove Streamlit Tab Highlight & Border Artifacts */
+    div[data-baseweb="tab-highlight"] { display: none !important; }
+    div[data-baseweb="tab-border"] { display: none !important; }
+
+    /* 5. Base Tab List Bar Styling */
     .stTabs [data-baseweb="tab-list"] {
+        gap: 8px !important;
         background-color: #F8FAFC !important;
-        padding: 6px 8px;
-        border-radius: 10px;
-        border: 1px solid #E2E8F0;
-        gap: 8px;
+        padding: 6px !important;
+        border-radius: 10px !important;
+        border: 1px solid #E2E8F0 !important;
     }
+
+    /* 6. Default (Inactive) Tab Style */
     .stTabs [data-baseweb="tab"] {
         background-color: transparent !important;
-        border-radius: 8px !important;
-        padding: 8px 18px !important;
         border: none !important;
+        border-radius: 6px !important;
+        padding: 8px 16px !important;
+        box-shadow: none !important;
+    }
+    
+    .stTabs [data-baseweb="tab"] p {
         color: #475569 !important;
-        font-weight: 600 !important;
-        transition: all 0.2s ease-in-out;
+        font-weight: 500 !important;
     }
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: #E2E8F0 !important;
-        color: #0F172A !important;
-    }
-    .stTabs [aria-selected="true"] {
+
+    /* 7. PERFECT ACTIVE TAB FIX (Removes Ugly Dark Blue Background Box) */
+    .stTabs button[aria-selected="true"] {
         background-color: #0B2545 !important;
-        color: #FFFFFF !important;
-        box-shadow: 0 2px 4px rgba(11, 37, 69, 0.15);
+        border-radius: 6px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
     }
-    .stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] span {
+
+    .stTabs button[aria-selected="true"] p, 
+    .stTabs button[aria-selected="true"] span {
         color: #FFFFFF !important;
         font-weight: 700 !important;
     }
-    .stTabs [data-baseweb="tab-highlight"] {
-        display: none !important; /* Disables default awkward bar */
-    }
 
-    /* 5. Clean Card Output Box */
+    /* 8. Output Card Component */
     .output-card {
         background-color: #FFFFFF !important;
         border-left: 4px solid #0B2545;
         border-radius: 8px;
         padding: 22px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        border-top: 1px solid #F1F5F9;
-        border-right: 1px solid #F1F5F9;
-        border-bottom: 1px solid #F1F5F9;
+        border: 1px solid #F1F5F9;
         margin-top: 15px;
     }
     .output-card * { color: #0F172A !important; }
