@@ -2,7 +2,6 @@ import os
 import time
 import warnings
 import streamlit as st
-import streamlit.components.v1 as components
 from google import genai
 from pypdf import PdfReader
 
@@ -63,7 +62,8 @@ TRANSLATIONS = {
         "warning_upload": "👈 Please upload BIS Documents (PDFs) from the sidebar to begin.",
         "warning_empty_query": "Please enter a valid search query.",
         "official_response": "Official Verification Response",
-        "total_docs": "Total Loaded PDFs:"
+        "total_docs": "Total Loaded PDFs:",
+        "processing": "Analyzing documents & generating response..."
     },
     "Hindi": {
         "title": "भारतीय मानक ब्यूरो",
@@ -100,7 +100,8 @@ TRANSLATIONS = {
         "warning_upload": "👈 शुरुआत करने के लिए साइडबार से PDFs अपलोड करें।",
         "warning_empty_query": "कृपया मान्य प्रश्न लिखें।",
         "official_response": "आधिकारिक सत्यापन उत्तर",
-        "total_docs": "कुल लोड की गई PDFs:"
+        "total_docs": "कुल लोड की गई PDFs:",
+        "processing": "दस्तावेज़ों का विश्लेषण करके उत्तर तैयार किया जा रहा है..."
     },
     "Marathi": {
         "title": "भारतीय मानक ब्युरो",
@@ -137,7 +138,8 @@ TRANSLATIONS = {
         "warning_upload": "👈 कृपया PDF अपलोड करा.",
         "warning_empty_query": "कृपया वैध प्रश्न प्रविष्ट करा.",
         "official_response": "अधिकृत उत्तर",
-        "total_docs": "एकूण लोड केलेल्या PDFs:"
+        "total_docs": "एकूण लोड केलेल्या PDFs:",
+        "processing": "प्रक्रिया सुरू आहे..."
     },
     "Gujarati": {
         "title": "ભારતીય માનક બ્યુરો",
@@ -174,7 +176,8 @@ TRANSLATIONS = {
         "warning_upload": "કૃપા કરીને PDF અપલોડ કરો.",
         "warning_empty_query": "માન્ય પ્રશ્ન દાખલ કરો.",
         "official_response": "સત્તાવાર જવાબ",
-        "total_docs": "કુલ લોડ થયેલ PDFs:"
+        "total_docs": "કુલ લોડ થયેલ PDFs:",
+        "processing": "પ્રક્રિયા ચાલુ છે..."
     },
     "Bengali": {
         "title": "ভারতীয় মানক ব্যুরো",
@@ -211,7 +214,8 @@ TRANSLATIONS = {
         "warning_upload": "অনুগ্রহ করে PDF আপলোড করুন।",
         "warning_empty_query": "একটি বৈধ প্রশ্ন লিখুন।",
         "official_response": "অফিসিয়াল উত্তর",
-        "total_docs": "মোট লোড হওয়া PDFs:"
+        "total_docs": "মোট লোড হওয়া PDFs:",
+        "processing": "প্রসেসিং চলছে..."
     },
     "Tamil": {
         "title": "இந்திய தர நிர்ணய பணியகம்",
@@ -248,7 +252,8 @@ TRANSLATIONS = {
         "warning_upload": "PDF ஐ பதிவேற்றவும்.",
         "warning_empty_query": "சரியான கேள்வியை உள்ளிடவும்.",
         "official_response": "அதிகாரபூர்வ பதில்",
-        "total_docs": "மொத்த PDFகள்:"
+        "total_docs": "மொத்த PDFகள்:",
+        "processing": "செயலாக்கப்படுகிறது..."
     }
 }
 
@@ -300,7 +305,9 @@ st.markdown("""
     }
     .output-card * { color: #0F172A !important; }
     
-    .stProgress > div > div > div > div { background-color: #0B2545; }
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #0B2545 0%, #1D4ED8 100%) !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -311,14 +318,12 @@ if not os.path.exists(DB_FOLDER):
 
 # --- 6. HELPER FUNCTIONS ---
 def save_uploaded_files(uploaded_files):
-    """Saves uploaded PDF files to local disk storage."""
     for file in uploaded_files:
         file_path = os.path.join(DB_FOLDER, file.name)
         with open(file_path, "wb") as f:
             f.write(file.getbuffer())
 
 def load_all_documents_text():
-    """Reads text from all stored PDF files in the database directory."""
     combined_text = ""
     files = [f for f in os.listdir(DB_FOLDER) if f.endswith('.pdf')]
     max_chars_per_doc = 30000
@@ -341,7 +346,6 @@ def load_all_documents_text():
     return combined_text, files
 
 def run_gemini(prompt):
-    """Sends prompt to Gemini API and returns generated text response."""
     try:
         response = client.models.generate_content(
             model=MODEL_NAME,
@@ -351,15 +355,32 @@ def run_gemini(prompt):
     except Exception as e:
         return f"Error connecting to AI service: {e}"
 
-def simulate_progress():
-    """Simulates processing delay for UI progress bar animation."""
-    progress_text = "Parsing Standard Clauses & Connecting to API..."
-    my_bar = st.progress(0, text=progress_text)
-    for percent_complete in range(100):
-        time.sleep(0.01)
-        my_bar.progress(percent_complete + 1, text=progress_text)
-    time.sleep(0.5)
-    my_bar.empty()
+def execute_with_real_progress(task_fn, msg_prefix="Processing"):
+    """
+    Runs progress bar from 0% to 90%, executes the real API/Task function,
+    and then jumps to 100% ONLY when output is ready.
+    """
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    # Fast initial progress up to 90%
+    for i in range(1, 91):
+        time.sleep(0.008)
+        progress_bar.progress(i)
+        status_text.caption(f"⏳ {msg_prefix}... **{i}%**")
+    
+    # Real work happens here while holding at 90%
+    result = task_fn()
+    
+    # Instantly complete to 100% when result is fetched
+    progress_bar.progress(100)
+    status_text.caption(f"✅ Done! **100%**")
+    time.sleep(0.3)
+    
+    progress_bar.empty()
+    status_text.empty()
+    
+    return result
 
 # --- 7. TOP NAVIGATION ---
 col_space, col_lang = st.columns([4, 1.2])
@@ -405,35 +426,16 @@ with st.sidebar:
 
 # --- 9. MAIN INTERFACE ---
 banner_html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-body {{ margin: 0; padding: 0; font-family: system-ui; }}
-.tricolor-band {{
-    height: 4px; background: linear-gradient(to right, #FF9933 0%, #FFFFFF 50%, #128807 100%);
-    border-radius: 2px; margin-bottom: 12px;
-}}
-.banner-container {{
-    background-color: #0B2545; padding: 20px 24px; border-radius: 8px; border-bottom: 4px solid #D4AF37;
-}}
-.banner-title {{ color: #FFFFFF !important; font-size: 22px; font-weight: 700; margin-bottom: 6px; }}
-.banner-desc {{ color: #E2E8F0 !important; font-size: 13.5px; margin: 0; }}
-</style>
-</head>
-<body>
-    <div class="tricolor-band"></div>
-    <div class="banner-container">
-        <div class="banner-title">{t['portal_name']}</div>
-        <div class="banner-desc">{t['portal_desc']}</div>
-    </div>
-</body>
-</html>
+<div style="height: 4px; background: linear-gradient(to right, #FF9933 0%, #FFFFFF 50%, #128807 100%); border-radius: 2px; margin-bottom: 12px;"></div>
+<div style="background-color: #0B2545; padding: 20px 24px; border-radius: 8px; border-bottom: 4px solid #D4AF37; margin-bottom: 20px;">
+    <div style="color: #FFFFFF !important; font-size: 22px; font-weight: 700; margin-bottom: 6px;">{t['portal_name']}</div>
+    <div style="color: #E2E8F0 !important; font-size: 13.5px; margin: 0;">{t['portal_desc']}</div>
+</div>
 """
 
-components.html(banner_html, height=115)
+# Native HTML Rendering to prevent Deprecation Warnings
+st.html(banner_html)
 
-# Initialize application tabs
 tab1, tab2, tab3, tab4 = st.tabs([t['tab1'], t['tab2'], t['tab3'], t['tab4']])
 
 all_text, file_list = load_all_documents_text()
@@ -448,9 +450,11 @@ with tab1:
         user_query = st.text_input(t['input_label'], placeholder=t['input_placeholder'])
         if st.button(t['btn_search']):
             if user_query:
-                simulate_progress()
                 prompt = f"You are a BIS compliance assistant. Search across ALL documents and answer strictly in {lang_choice} language.\n\nDocs:\n{all_text}\n\nQuery:\n{user_query}"
-                ans = run_gemini(prompt)
+                
+                # Executes real API and updates progress bar to 100% only when output returns
+                ans = execute_with_real_progress(lambda: run_gemini(prompt), t['processing'])
+                
                 st.markdown('<div class="output-card">', unsafe_allow_html=True)
                 st.markdown(f"### **{t['official_response']}**")
                 st.write(ans)
@@ -463,8 +467,9 @@ with tab2:
     if file_list:
         st.subheader(t['sum_heading'])
         if st.button(t['btn_sum']):
-            simulate_progress()
-            summary = run_gemini(f"Provide executive summary in {lang_choice} language:\n\n{all_text}")
+            prompt = f"Provide executive summary in {lang_choice} language:\n\n{all_text}"
+            summary = execute_with_real_progress(lambda: run_gemini(prompt), t['processing'])
+            
             st.markdown('<div class="output-card">', unsafe_allow_html=True)
             st.write(summary)
             st.markdown('</div>', unsafe_allow_html=True)
@@ -474,13 +479,14 @@ with tab3:
     if file_list:
         st.subheader(t['pen_heading'])
         if st.button(t['btn_pen']):
-            simulate_progress()
-            penalties = run_gemini(f"List penalties & obligations in {lang_choice} language:\n\n{all_text}")
+            prompt = f"List penalties & obligations in {lang_choice} language:\n\n{all_text}"
+            penalties = execute_with_real_progress(lambda: run_gemini(prompt), t['processing'])
+            
             st.markdown('<div class="output-card">', unsafe_allow_html=True)
             st.write(penalties)
             st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 4: CM/L CHECK (AUTOMATIC LABEL VERIFIER) ---
+# --- TAB 4: CM/L CHECK ---
 with tab4:
     st.subheader(t['scan_heading'])
     st.caption(t['scan_caption'])
@@ -489,23 +495,17 @@ with tab4:
     
     if uploaded_img is not None:
         st.image(uploaded_img, width=280)
-        
-        # Extract filename for automatic detection logic
         file_name_lower = uploaded_img.name.lower()
         
-        simulate_progress()  # Show progress bar simulation
-        
-        # Check if the filename contains 'fake' or 'invalid' keyword
-        if "fake" in file_name_lower or "invalid" in file_name_lower:
-            detected_cml = "CML-0203048570 (Unregistered)"
-            is_valid = False
-        else:
-            # Default to authentic license for valid files
-            detected_cml = "CML-8700142214"
-            is_valid = True
+        def process_image():
+            time.sleep(0.5) # processing simulation
+            if "fake" in file_name_lower or "invalid" in file_name_lower:
+                return "CML-0203048570 (Unregistered)", False
+            return "CML-8700142214", True
+            
+        detected_cml, is_valid = execute_with_real_progress(process_image, t['scanning_info'])
             
         st.markdown(f"**{t['cml_label']}** `{detected_cml}`")
-        
         if is_valid:
             st.success(t['valid_msg'])
         else:
